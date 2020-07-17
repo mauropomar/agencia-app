@@ -212,7 +212,6 @@ function getUsers(req, res) {
         page = req.params.page;
     }
     var itemsPerPage = 10;
-    console.log('eee');
     Usuario.find().sort('_id').populate('rol', 'nombre').populate('sucursal', 'nombre pais').paginate(page, itemsPerPage, (err, datos, total) => {
         if (err) return res.status(500).send({ message: 'Error en la peticion' });
         if (!datos) return res.status(400).send({ message: 'No hay usuarios disponibles.' });
@@ -243,11 +242,9 @@ function getUsersBySucursal(req, res) {
     });
 }
 
-function searchUsuario(req, res){
-    
+function searchUsuario(req, res){    
     var queryCond = {};
-    var query = req.query;
-  
+    var query = req.query;  
     if (query.type == 'cuenta') {
         queryCond.cuenta = {$regex: query.term, $options: "i"}
     }
