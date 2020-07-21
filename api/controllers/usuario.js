@@ -6,7 +6,8 @@ var jwt = require('../services/jwt');
 var mongoosePaginate = require('mongoose-pagination');
 var fs = require('fs');
 var path = require('path');
-
+var CryptoJS = require("crypto-js");
+secretKey = "YourSecretKeyForEncryption&Descryption";
 
 //metodo de login
 function loginUser(req, res) {
@@ -16,24 +17,25 @@ function loginUser(req, res) {
     Usuario.findOne({ email: email }, (err, user) => {
         if (err) return res.status(500).send({ message: 'Error de peticion' });
         if (user) {
-            bcrypt.compare(password, user.password, (err, check) => {
-                if (check) {
-                    if (params.gettoken) {
-                        //devolver  y generar token
-                        res.status(200).send({
-                            user: user,
-                            token: jwt.createToken(user),
-                        });
-                    }
+            var passUser = CryptoJS.AES.decrypt(password, secretKey.trim()).toString(CryptoJS.enc.Utf8);
+            var passUserBd = CryptoJS.AES.decrypt(user.password, secretKey.trim()).toString(CryptoJS.enc.Utf8);
+            if (passUser == passUserBd) {
+                if (params.gettoken) {
+                    //devolver  y generar token
+                    res.status(200).send({
+                        success:true,
+                        user: user,
+                        token: jwt.createToken(user),
+                    });
                 } else {
-                    return res.status(404).send({ message: 'Usuario y/o contraseña incorrecta.' })
+                    return res.status(404).send({ success:false, message: 'Usuario y/o contraseña incorrecta.' })
                 }
-            })
+            }
         } else {
-            return res.status(404).send({ message: 'El usuario no se ha podido identificar!!!' })
+            return res.status(404).send({ success:false, message: 'El usuario no se ha podido identificar!!!' })
         }
     }
-    ).populate('sucursal')
+    )
 }
 
 //salva los datos de un usuario
@@ -160,7 +162,7 @@ function updateUser(req, res) {
                 rol: update.rol,
                 sucursal: update.sucursal,
                 imagen: update.imagen,
-                password:password
+                password: password
             };
             Usuario.findByIdAndUpdate(userId, user, { new: true }, (err, datosUsuario) => {
                 if (err) return res.status(500).send({ success: false, message: 'Error en la peticion.' });
@@ -211,7 +213,7 @@ function getUsers(req, res) {
     if (req.params.page) {
         page = req.params.page;
     }
-    var itemsPerPage = 10;
+    var itemsPerPage = 8;
     Usuario.find().sort('_id').populate('rol', 'nombre').populate('sucursal', 'nombre pais').paginate(page, itemsPerPage, (err, datos, total) => {
         if (err) return res.status(500).send({ message: 'Error en la peticion' });
         if (!datos) return res.status(400).send({ message: 'No hay usuarios disponibles.' });
@@ -231,7 +233,7 @@ function getUsersBySucursal(req, res) {
         page = req.params.page;
     }
     var itemsPerPage = 20;
-    Usuario.find({sucursal:req.query.sucId}).sort('_id').populate('rol', 'nombre').populate('sucursal', 'nombre pais').paginate(page, itemsPerPage, (err, datos, total) => {
+    Usuario.find({ sucursal: req.query.sucId }).sort('_id').populate('rol', 'nombre').populate('sucursal', 'nombre pais').paginate(page, itemsPerPage, (err, datos, total) => {
         if (err) return res.status(500).send({ message: 'Error en la peticion' });
         if (!datos) return res.status(400).send({ message: 'No hay usuarios disponibles.' });
         return res.status(200).send({
@@ -242,18 +244,18 @@ function getUsersBySucursal(req, res) {
     });
 }
 
-function searchUsuario(req, res){    
+function searchUsuario(req, res) {
     var queryCond = {};
-    var query = req.query;  
+    var query = req.query;
     if (query.type == 'cuenta') {
-        queryCond.cuenta = {$regex: query.term, $options: "i"}
+        queryCond.cuenta = { $regex: query.term, $options: "i" }
     }
-   if (query.type == 'nombre') {
-        queryCond.nombre = {$regex: query.term, $options: "i"}
+    if (query.type == 'nombre') {
+        queryCond.nombre = { $regex: query.term, $options: "i" }
     }
     Usuario.find(queryCond).sort('nombre').exec((err, datos) => {
         if (err) return res.status(500).send({ succss: false, message: 'Error en la peticion' });
-        if (!datos) return res.status(400).send({message: 'No hay usuarios disponibles.'});
+        if (!datos) return res.status(400).send({ message: 'No hay usuarios disponibles.' });
         return res.status(200).send({
             datos: datos,
             success: true
@@ -330,6 +332,6 @@ module.exports = {
     uploadImage,
     getImageFile,
     deleteUsuario,
-	searchUsuario,
+    searchUsuario,
     getUsersBySucursal
 }
